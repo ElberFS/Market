@@ -16,6 +16,22 @@
                     <flux:navlist.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>{{ __('Dashboard') }}</flux:navlist.item>
                     {{-- Gestión de Usuarios (Solo Admin) --}}
                     @auth @role('administrador')<flux:navlist.item icon="users" :href="route('admin.users.index')" :current="request()->routeIs('admin.users.index')" wire:navigate>{{ __('User Management') }}</flux:navlist.item>@endrole @endauth
+                    {{-- Gestión de Categorías (Admin y Vendedor) --}}
+                    @auth
+                        @role('administrador|vendedor')
+                            <flux:navlist.item icon="folder" :href="route('admin.categories.index')" :current="request()->routeIs('admin.categories.*')" wire:navigate>
+                                {{ __('Gestión de Categorías') }}
+                            </flux:navlist.item>
+                        @endrole
+                    @endauth
+                    {{-- Gestión de Productos (Admin y Vendedor) --}}
+                    @auth
+                        @role('administrador|vendedor')
+                            <flux:navlist.item icon="cube" :href="route('admin.products.index')" :current="request()->routeIs('admin.products.*')" wire:navigate>
+                                {{ __('Gestión de Productos') }}
+                            </flux:navlist.item>
+                        @endrole
+                    @endauth
                 </flux:navlist.group>
             </flux:navlist>
 

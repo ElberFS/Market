@@ -40,6 +40,25 @@ class DatabaseSeeder extends Seeder
             }
         }
 
+        // Opcional: Crear un usuario vendedor para pruebas
+        $sellerEmail = 'seller@example.com';
+        if (!User::where('email', $sellerEmail)->exists()) {
+            $sellerUser = User::create([
+                'name' => 'Vendedor de Prueba',
+                'email' => $sellerEmail,
+                'password' => Hash::make('password'),
+                'email_verified_at' => now(),
+            ]);
+            $sellerUser->assignRole('vendedor'); // Asigna el rol 'vendedor'
+            $this->command->info("Usuario '{$sellerUser->name}' (Vendedor) creado y rol asignado.");
+        } else {
+            $this->command->info("Usuario vendedor '{$sellerEmail}' ya existe. Asignando rol si no lo tiene...");
+            $existingSeller = User::where('email', $sellerEmail)->first();
+            if (!$existingSeller->hasRole('vendedor')) {
+                $existingSeller->assignRole('vendedor');
+                $this->command->info("Rol 'vendedor' asignado al usuario existente '{$existingSeller->name}'.");
+            }
+        }
 
         // Opcional: Crear un usuario cliente para pruebas
         $clientEmail = 'client@example.com';
@@ -53,12 +72,12 @@ class DatabaseSeeder extends Seeder
             $clientUser->assignRole('cliente');
             $this->command->info("Usuario '{$clientUser->name}' (Cliente) creado y rol asignado.");
         } else {
-             $this->command->info("Usuario cliente '{$clientEmail}' ya existe. Asignando rol si no lo tiene...");
-             $existingClient = User::where('email', $clientEmail)->first();
-             if (!$existingClient->hasRole('cliente')) {
-                 $existingClient->assignRole('cliente');
-                 $this->command->info("Rol 'cliente' asignado al usuario existente '{$existingClient->name}'.");
-             }
+            $this->command->info("Usuario cliente '{$clientEmail}' ya existe. Asignando rol si no lo tiene...");
+            $existingClient = User::where('email', $clientEmail)->first();
+            if (!$existingClient->hasRole('cliente')) {
+                $existingClient->assignRole('cliente');
+                $this->command->info("Rol 'cliente' asignado al usuario existente '{$existingClient->name}'.");
+            }
         }
 
         // Si necesitas usuarios de ejemplo masivos, puedes usar factorías aquí:
