@@ -1,3 +1,4 @@
+No ejecuar 
 php artisan make:livewire Category/CategoryForm
 php artisan make:livewire Category/CategoryList
 php artisan make:livewire Product/ProductForm
@@ -14,9 +15,9 @@ git commit -m "first commit"
 git branch -M main
 git remote add origin https://github.com/ElberFS/Vue.git
 git push -u origin main
+-- -----------------------------------------------------------------
 
-
-Pasos despues de clonar : 
+Pasos despues de clonar  descargar y descomprimir : 
 1.- Buscar el archivo  .env.example 
 2.- Crear un archivo de nombre .env y van a pegar toda la informacion de .env.example 
 
@@ -27,4 +28,4 @@ Pasos despues de clonar :
 5.- crear la llave de sesion : php artisan key:generate
 
 6.- Migrar base de datos: php artisan migrate 
-
+7.- Ejecuar Seeder : php artisan db:seed
