@@ -3,20 +3,20 @@
 namespace App\Livewire\Product;
 
 use App\Models\Product;
-use App\Models\Category; // Importar el modelo Category
-use App\Models\Brand;    // Importar el modelo Brand
-use App\Models\ProductImage; // Importar el modelo ProductImage
+use App\Models\Category;
+use App\Models\Brand;
+use App\Models\ProductImage;
 use Livewire\Component;
-use Livewire\WithFileUploads; // Importar el trait para subir archivos
+use Livewire\WithFileUploads;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
-use Illuminate\Support\Facades\Storage; // Para manejar el almacenamiento de archivos
+use Illuminate\Support\Facades\Storage;
 
 class ProductForm extends Component
 {
-    use WithFileUploads; // Habilitar la carga de archivos
+    use WithFileUploads; // Habilita la subida de archivos para Livewire
 
-    // Propiedades del producto
+    // Propiedades del formulario que corresponden a los campos de un producto
     public $productId;
     public $name;
     public $slug;
@@ -31,56 +31,52 @@ class ProductForm extends Component
     public $is_active = true;
     public $is_featured = false;
 
-    // Propiedades para la carga y gestión de imágenes
-    public $newImages = []; // Array para las nuevas imágenes subidas
-    public $existingImages = []; // Array para las imágenes existentes del producto
-    public $imageDeleteIds = []; // Array para IDs de imágenes a eliminar
+    // Propiedades para la gestión de imágenes
+    public $newImages = [];       // Archivos de imagen recién subidos
+    public $existingImages = [];  // Datos de imágenes ya asociadas al producto
+    public $imageDeleteIds = [];  // IDs de imágenes existentes marcadas para eliminar
 
-    // Datos para selectores
+    // Datos para los selectores (dropdowns) en el formulario
     public $categories;
     public $brands;
 
+    /**
+     * Define las reglas de validación para las propiedades del formulario.
+     */
     protected function rules()
     {
         return [
             'name' => [
-                'required',
-                'string',
-                'max:255',
-                // Validar unicidad del nombre, ignorando el producto actual si es edición
-                $this->productId
-                    ? Rule::unique('products', 'name')->ignore($this->productId)
-                    : 'unique:products,name',
+                'required', 'string', 'max:255',
+                // Validación única del nombre, ignorando el producto actual si se está editando
+                $this->productId ? Rule::unique('products', 'name')->ignore($this->productId) : 'unique:products,name',
             ],
             'slug' => [
-                'required',
-                'string',
-                'max:255',
-                // Validar unicidad del slug, ignorando el producto actual si es edición
+                'required', 'string', 'max:255',
+                // Validación única del slug, ignorando el producto actual
                 Rule::unique('products', 'slug')->ignore($this->productId),
             ],
             'description' => 'required|string',
             'short_description' => 'nullable|string|max:500',
             'price' => 'required|numeric|min:0.01',
-            'old_price' => 'nullable|numeric|min:0.01|gt:price', // old_price debe ser mayor que price si existe
+            'old_price' => 'nullable|numeric|min:0.01|gt:price',
             'SKU' => [
-                'nullable',
-                'string',
-                'max:255',
-                // Validar unicidad del SKU, ignorando el producto actual si es edición
-                $this->productId
-                    ? Rule::unique('products', 'SKU')->ignore($this->productId)
-                    : 'unique:products,SKU',
+                'nullable', 'string', 'max:255',
+                // Validación única del SKU, ignorando el producto actual
+                $this->productId ? Rule::unique('products', 'SKU')->ignore($this->productId) : 'unique:products,SKU',
             ],
             'stock' => 'required|integer|min:0',
             'category_id' => 'required|exists:categories,id',
             'brand_id' => 'nullable|exists:brands,id',
             'is_active' => 'boolean',
             'is_featured' => 'boolean',
-            'newImages.*' => 'nullable|image|max:2048', // Validación para cada nueva imagen (máx 2MB)
+            'newImages.*' => 'nullable|image|max:2048', // Validación para cada archivo de imagen
         ];
     }
 
+    /**
+     * Define los mensajes personalizados para las reglas de validación.
+     */
     protected $messages = [
         'name.required' => 'El nombre del producto es obligatorio.',
         'name.unique' => 'Ya existe un producto con este nombre.',
@@ -102,17 +98,22 @@ class ProductForm extends Component
         'newImages.*.max' => 'Cada imagen no debe pesar más de 2MB.',
     ];
 
+    /**
+     * Se ejecuta una vez al inicializar el componente.
+     * Carga datos iniciales (categorías, marcas) y el producto si se está editando.
+     */
     public function mount($productId = null)
     {
-        // Cargar categorías y marcas disponibles para los selectores
+        // Cargar datos para los selectores del formulario
         $this->categories = Category::orderBy('name')->get();
-        $this->brands = Brand::orderBy('name')->get(); // Asegúrate de tener un modelo Brand y una tabla 'brands'
+        $this->brands = Brand::orderBy('name')->get();
 
+        // Si hay un ID de producto, cargar el producto existente para edición
         if ($productId) {
             $this->productId = $productId;
-            $product = Product::with('images')->findOrFail($productId); // Cargar el producto con sus imágenes
+            $product = Product::with('images')->findOrFail($productId); // Cargar el producto con sus imágenes relacionadas
 
-            // Asignar propiedades del producto
+            // Asignar los atributos del producto a las propiedades del componente
             $this->name = $product->name;
             $this->slug = $product->slug;
             $this->description = $product->description;
@@ -123,64 +124,72 @@ class ProductForm extends Component
             $this->stock = $product->stock;
             $this->category_id = $product->category_id;
             $this->brand_id = $product->brand_id;
-            $this->is_active = $product->is_active;
-            $this->is_featured = $product->is_featured;
+            $this->is_active = (bool) $product->is_active;
+            $this->is_featured = (bool) $product->is_featured;
 
-            // Cargar imágenes existentes
+            // Cargar las imágenes existentes del producto
             $this->existingImages = $product->images->toArray();
         }
     }
 
-    // Se ejecuta automáticamente cuando 'name' cambia
+    /**
+     * Se ejecuta automáticamente cuando la propiedad 'name' cambia.
+     * Genera el slug a partir del nombre y valida solo el slug.
+     */
     public function updatedName($value)
     {
         $this->slug = Str::slug($value);
-        $this->validateOnly('slug'); // Opcional: Revalidar solo el slug para feedback inmediato
+        $this->validateOnly('slug');
     }
 
-    // Se ejecuta automáticamente cuando 'newImages' cambia
-    // Puede usarse para validación en tiempo real o previsualización
+    /**
+     * Se ejecuta automáticamente cuando se seleccionan nuevas imágenes.
+     * Valida cada nueva imagen al ser seleccionada.
+     */
     public function updatedNewImages()
     {
-        $this->validateOnly('newImages.*'); // Valida cada nueva imagen al seleccionarla
+        $this->validateOnly('newImages.*');
     }
 
-    // Método para marcar una imagen existente para eliminación
+    /**
+     * Alterna el estado de una imagen existente para ser eliminada.
+     */
     public function markImageForDeletion($imageId)
     {
         if (($key = array_search($imageId, $this->imageDeleteIds)) !== false) {
-            // Si ya está marcada, desmarcarla
-            unset($this->imageDeleteIds[$key]);
+            unset($this->imageDeleteIds[$key]); // Desmarcar
         } else {
-            // Si no está marcada, marcarla
-            $this->imageDeleteIds[] = $imageId;
+            $this->imageDeleteIds[] = $imageId; // Marcar
         }
-        $this->imageDeleteIds = array_values($this->imageDeleteIds); // Reindexar el array
+        $this->imageDeleteIds = array_values($this->imageDeleteIds); // Reindexar array
     }
 
-    // Método para eliminar una imagen existente del DOM (sin eliminarla de DB todavía)
+    /**
+     * Elimina una imagen de la lista de 'existingImages' en el DOM y la marca para eliminación.
+     */
     public function removeExistingImage($imageId)
     {
-        // Esto es útil si quieres que el usuario vea que la imagen "desaparece"
-        // antes de guardar. La eliminación real en DB ocurre en saveProduct.
-        $this->existingImages = array_filter($this->existingImages, function($image) use ($imageId) {
-            return $image['id'] != $imageId;
-        });
-        // Asegurarse de que si se eliminó del DOM, también se marque para borrar de la DB
-        $this->markImageForDeletion($imageId);
+        $this->existingImages = array_filter($this->existingImages, fn($image) => $image['id'] != $imageId);
+        $this->markImageForDeletion($imageId); // Asegurarse de que también se marque para DB
     }
 
-    // Método para eliminar una nueva imagen subida (antes de guardar)
+    /**
+     * Elimina una nueva imagen de la lista de 'newImages' antes de guardar.
+     */
     public function removeNewImage($key)
     {
         unset($this->newImages[$key]);
-        $this->newImages = array_values($this->newImages); // Reindexar el array
+        $this->newImages = array_values($this->newImages); // Reindexar array
     }
 
+    /**
+     * Guarda o actualiza un producto, incluyendo la gestión de imágenes.
+     */
     public function saveProduct()
     {
-        $this->validate(); // Valida todos los campos, incluyendo las nuevas imágenes
+        $this->validate(); // Ejecuta las reglas de validación
 
+        // Prepara los datos del producto
         $data = [
             'name' => $this->name,
             'slug' => $this->slug,
@@ -198,58 +207,54 @@ class ProductForm extends Component
 
         try {
             if ($this->productId) {
-                // Modo Edición
+                // Actualiza un producto existente
                 $product = Product::find($this->productId);
                 $product->update($data);
                 session()->flash('message', 'Producto actualizado exitosamente.');
             } else {
-                // Modo Creación
+                // Crea un nuevo producto
                 $product = Product::create($data);
-                $this->productId = $product->id; // Obtener el ID del nuevo producto
+                $this->productId = $product->id; // Guarda el ID del producto recién creado
                 session()->flash('message', 'Producto creado exitosamente.');
             }
 
-            // 1. Eliminar imágenes marcadas
+            // Elimina las imágenes marcadas para eliminación (tanto del almacenamiento como de la DB)
             if (!empty($this->imageDeleteIds)) {
                 $imagesToDelete = ProductImage::whereIn('id', $this->imageDeleteIds)->get();
                 foreach ($imagesToDelete as $img) {
-                    Storage::disk('public')->delete($img->image_path); // Eliminar archivo físico
+                    Storage::disk('public')->delete($img->image_path);
                     if ($img->thumbnail_path) {
-                        Storage::disk('public')->delete($img->thumbnail_path); // Eliminar miniatura física
+                        Storage::disk('public')->delete($img->thumbnail_path);
                     }
-                    $img->delete(); // Eliminar registro de la DB
+                    $img->delete();
                 }
             }
 
-            // 2. Subir y guardar nuevas imágenes
+            // Sube y asocia las nuevas imágenes al producto
             foreach ($this->newImages as $image) {
-                $imagePath = $image->store('products', 'public'); // Guarda en storage/app/public/products
-
-                // Opcional: Generar y guardar thumbnail (requiere Intervention Image u otra librería)
-                // Para simplificar, aquí solo guardamos la ruta de la imagen original.
-                // Si quieres generar thumbnails, necesitarías una librería como Intervention Image
-                // y código adicional aquí para procesar la imagen antes de guardar.
-                $thumbnailPath = null; // Opcional: implementar la generación de thumbnail aquí
+                $imagePath = $image->store('products', 'public'); // Guarda la imagen
+                $thumbnailPath = null; // Lógica para thumbnail si se implementa
 
                 ProductImage::create([
                     'product_id' => $product->id,
                     'image_path' => $imagePath,
                     'thumbnail_path' => $thumbnailPath,
-                    'is_main' => false, // Podrías tener lógica para determinar la principal
-                    'sort_order' => 0,  // Podrías tener lógica para el orden
+                    'is_main' => false,
+                    'sort_order' => 0,
                 ]);
             }
 
-            // Redirigir al listado de productos después de guardar
+            // Redirige a la lista de productos
             return redirect()->route('admin.products.index');
 
         } catch (\Exception $e) {
             session()->flash('error', 'Error al guardar el producto: ' . $e->getMessage());
-            // Opcional: loguear el error para depuración
-            // \Log::error('Error al guardar producto: ' . $e->getMessage());
         }
     }
 
+    /**
+     * Renderiza la vista del componente.
+     */
     public function render()
     {
         return view('livewire.product.product-form');

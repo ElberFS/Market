@@ -2,20 +2,21 @@
 
 namespace App\Livewire\Product;
 
-use App\Models\Product; // Importar el modelo Product
+use App\Models\Product; // Importa el modelo Product
 use Livewire\Component;
-use Livewire\WithPagination; // Para paginación
+use Livewire\WithPagination; // Habilita la paginación
 
 class ProductList extends Component
 {
     use WithPagination;
 
-    public $search = ''; // Propiedad para el término de búsqueda
-    public $sortField = 'id'; // Campo por el cual ordenar
-    public $sortDirection = 'asc'; // Dirección de la ordenación
-    public $perPage = 10; // Cantidad de productos por página
+    // Propiedades para la búsqueda, ordenación y paginación
+    public $search = '';
+    public $sortField = 'id';
+    public $sortDirection = 'asc';
+    public $perPage = 10;
 
-    // Query string para mantener el estado de búsqueda y ordenación en la URL
+    // Configura la URL para reflejar el estado de búsqueda y ordenación
     protected $queryString = [
         'search' => ['except' => ''],
         'sortField' => ['except' => 'id'],
@@ -23,19 +24,28 @@ class ProductList extends Component
         'perPage' => ['except' => 10],
     ];
 
-    // Resetear la paginación cuando el término de búsqueda cambia
+    /**
+     * Hook de Livewire: Se ejecuta antes de actualizar 'search'.
+     * Reinicia la paginación para una nueva búsqueda.
+     */
     public function updatingSearch()
     {
         $this->resetPage();
     }
 
-    // Resetear la paginación cuando la cantidad por página cambia
+    /**
+     * Hook de Livewire: Se ejecuta antes de actualizar 'perPage'.
+     * Reinicia la paginación al cambiar la cantidad de elementos por página.
+     */
     public function updatingPerPage()
     {
         $this->resetPage();
     }
 
-    // Método para cambiar el campo y la dirección de ordenación
+    /**
+     * Cambia el campo y la dirección de ordenación.
+     * Si el campo es el mismo, invierte la dirección. Si es diferente, ordena ascendentemente.
+     */
     public function sortBy($field)
     {
         if ($this->sortField === $field) {
@@ -46,45 +56,41 @@ class ProductList extends Component
         $this->sortField = $field;
     }
 
-    // Método para eliminar un producto
+    /**
+     * Elimina un producto de la base de datos.
+     *
+     * @param int $productId El ID del producto a eliminar.
+     */
     public function deleteProduct($productId)
     {
         try {
             $product = Product::findOrFail($productId);
-
-            // Opcional: Si quieres eliminar las imágenes físicas al eliminar el producto,
-            // asegúrate de que esto se maneje a nivel de modelo con observers o que
-            // las relaciones con onDelete('cascade') en la DB hagan el trabajo
-            // (que ya lo hacen para product_images, pero no para archivos físicos).
-            // Si las imágenes están en Storage, deberías eliminarlas manualmente aquí o en un observer:
-            // foreach ($product->images as $image) {
-            //     Storage::disk('public')->delete($image->image_path);
-            //     if ($image->thumbnail_path) {
-            //         Storage::disk('public')->delete($image->thumbnail_path);
-            //     }
-            // }
-
+            // Considerar eliminar imágenes físicas aquí o mediante un Observer en el modelo Product
             $product->delete();
             session()->flash('message', 'Producto eliminado exitosamente.');
         } catch (\Exception $e) {
             session()->flash('error', 'Error al eliminar el producto: ' . $e->getMessage());
-            // \Log::error('Error al eliminar producto: ' . $e->getMessage());
         }
     }
 
+    /**
+     * Renderiza la vista del componente con la lista paginada de productos.
+     */
     public function render()
     {
-        // Consulta los productos, cargando relaciones para mostrar nombre de categoría/marca
+        // Consulta los productos, cargando sus categorías y marcas
         $products = Product::query()
-            ->with(['category', 'brand']) // Cargar relaciones Category y Brand
+            ->with(['category', 'brand'])
+            // Aplica filtros de búsqueda si 'search' tiene un valor
             ->when($this->search, function ($query) {
-                // Filtrar por nombre, descripción corta, SKU
                 $query->where('name', 'like', '%' . $this->search . '%')
                       ->orWhere('short_description', 'like', '%' . $this->search . '%')
                       ->orWhere('SKU', 'like', '%' . $this->search . '%');
             })
-            ->orderBy($this->sortField, $this->sortDirection) // Aplicar ordenación
-            ->paginate($this->perPage); // Aplicar paginación
+            // Aplica la ordenación
+            ->orderBy($this->sortField, $this->sortDirection)
+            // Aplica la paginación
+            ->paginate($this->perPage);
 
         return view('livewire.product.product-list', [
             'products' => $products,
